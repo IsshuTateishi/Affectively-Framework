@@ -1,0 +1,49 @@
+import numpy as np
+from affectively.environments.solid import SolidEnvironment
+
+
+class SolidEnvironmentGameObs(SolidEnvironment):
+
+    def __init__(self, id_number, graphics, weight, discretize, cluster, target_arousal, period_ra, imitate, classifier=True, preference=True, decision_period=10, capture_fps=5, correct_step_bug=True):
+        super().__init__(id_number=id_number, graphics=graphics, args=['-relativeObs', 'False' if discretize else 'True'],
+                         obs={"low": -np.inf, "high": np.inf, "shape": (86,), "type": np.float32},
+                        weight=weight, frame_buffer=False, cluster=cluster, 
+                        target_arousal=target_arousal, period_ra=period_ra, classifier=classifier, preference=preference, decision_period=decision_period, capture_fps=capture_fps, imitate=imitate, correct_step_bug=correct_step_bug)
+        self.discretize = discretize
+        self.estimated_position = [0, 0]
+
+    def construct_state(self, state):
+        game_obs = state[0]
+        if self.discretize:
+            game_obs = self.discretize_observations(game_obs)
+        self.game_obs = self.tuple_to_vector(game_obs)
+        return self.game_obs
+
+    def discretize_observations(self, game_obs):
+
+        position_discrete = np.round(np.array([game_obs[0], game_obs[2]]) / 30)
+        position_discrete[0] = 0 if position_discrete[0] == -0 else position_discrete[0]
+        position_discrete[1] = 0 if position_discrete[1] == -0 else position_discrete[1]
+
+        velocity = np.array([game_obs[3], game_obs[5]])
+        velocity_discrete = np.round(velocity / 50)
+
+        velocity_discrete[0] = 0 if velocity_discrete[0] == -0 else velocity_discrete[0]
+        velocity_discrete[1] = 0 if velocity_discrete[1] == -0 else velocity_discrete[1]
+
+        score = game_obs[47]
+        if score < 8:
+            score_bin = 0
+        elif score < 16:
+            score_bin = 1
+        else:
+            score_bin = 2
+
+        discrete_obs = (
+            list(position_discrete) + list(velocity_discrete) +
+            [
+                # velocity_discrete,
+                score_bin,
+            ]
+        )
+        return discrete_obs
